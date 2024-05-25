@@ -1,0 +1,83 @@
+logging.yaml
+
+version: 1
+disable_existing_loggers: False
+
+formatters:
+  detailed:
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(filename)s - %(funcName)s - %(message)s'
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: DEBUG
+    formatter: detailed
+    stream: ext://sys.stdout
+
+  file:
+    class: logging.handlers.TimedRotatingFileHandler
+    level: DEBUG
+    formatter: detailed
+    filename: app.log
+    when: M
+    interval: 1
+    backupCount: 12
+
+loggers:
+  behave:
+    level: DEBUG
+    handlers: [console, file]
+    propagate: no
+
+root:
+    level: DEBUG
+    handlers: [console, file]
+
+
+
+
+environment.py
+
+
+import logging
+import logging.config
+import yaml
+
+def setup_logging():
+    with open('logging.yaml', 'r') as file:
+        config = yaml.safe_load(file.read())
+        logging.config.dictConfig(config)
+
+def before_all(context):
+    setup_logging()
+    logger = logging.getLogger('behave')
+    logger.info("Logging is set up.")
+
+
+
+
+
+
+import logging
+from behave import given, when, then
+
+logger = logging.getLogger('behave')
+
+@given('I have a WebSocket client connected to "{uri}"')
+def step_given_websocket_client_connected(context, uri):
+    logger.info(f"Connecting to WebSocket server at {uri}")
+    context.client = WebSocketClient(uri)
+    context.client.connect()
+    logger.info(f"Connected to WebSocket server at {uri}")
+
+@when('I send "{message}" to the WebSocket server')
+def step_when_send_message(context, message):
+    logger.info(f"Sending message: {message}")
+    context.client.send_queue.put(message)
+
+@then('I should receive a message "{expected_message}"')
+def step_then_receive_message(context, expected_message):
+    received_message = context.client.receive_queue.get(timeout=10)  # Timeout for waiting for a message
+    logger.info(f"Received message: {received_message}")
+    assert received_message == expected_message, f"Expected '{expected_message}', but got '{received_message}'"
+
